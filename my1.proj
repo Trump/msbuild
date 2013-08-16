@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- InitialTargets="CopyWebTargets" DefaultTarget="StopIIS" -->
+<Project  xmlns="http://schemas.microsoft.com/developer/msbuild/2003" >
+	<!--Setting folder path name -->
+	<PropertyGroup>
+		<IISSiteFolder>c:\inetpub\wwwroot\Test\</IISSiteFolder>
+		<RootFolder>C:\testApp</RootFolder>
+		<PathToSrc>https://github.com/Trump/Test.git</PathToSrc>
+		<BranchToSwitchTo>b6429392ed3ebf30098b07475a5b4fe089cb29eb</BranchToSwitchTo>
+		<UserName></UserName>
+		<Password></Password>
+		<PathToAppCMD>C:\Windows\System32\inetsrv\appcmd.exe</PathToAppCMD>
+		<SiteName>"Default Web Site"</SiteName>
+		<VisualStudioWebTragetsFolderSources>C:\testApp\!tools\WebApplications</VisualStudioWebTragetsFolderSources>
+		<VisualStudioWebTragetsFolder>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v10.0\WebApplications</VisualStudioWebTragetsFolder>
+		<VisualStudioWebTragetsFile>Microsoft.WebApplication.targets</VisualStudioWebTragetsFile>
+		<PowershellPath>C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe</PowershellPath>
+		<ScriptPath>C:\testApp\!tools\checksite.ps1</ScriptPath>
+		<ExecutionPolicy>"Set-ExecutionPolicy Unrestricted -force; $(ScriptPath)"</ExecutionPolicy>
+	</PropertyGroup>
+	
+	<ItemGroup>
+        <WeApplicationTargetSources Include="C:\testApp\!tools\WebApplications\**\*.*"/>
+		<SiteFiles Include="C:\"/>
+		<AllFiles Include="$(RootFolder)\**\*"/>
+		<OnlyDirs Include="@(AllFiles->'%(Directory)')"/>
+    </ItemGroup>
+	
+	<!--Including git clone library-->
+	<UsingTask AssemblyFile="c:\testApp\!tools\GitHelper\GitTasks.dll" TaskName="Clone" />
+	<Target Name="GetSources" DependsOnTargets="CopyWebTargets;StopIISSite;">
+		<Clone Condition="!Exists('$(RootFolder)\Test')"
+			RepositoryToClone="$(PathToSrc)"
+			TargetDirectory="$(RootFolder)">			
+		</Clone>
+		<Removedir Condition="Exists('$(IISSiteFolder)')"
+			Directories="$(IISSiteFolder)" />
+		<MSBuild Projects="$(RootFolder)\test.sln" />
+		<AspNetCompiler
+			Clean="true"
+			VirtualPath="/"
+			PhysicalPath="$(RootFolder)\Test"
+			TargetPath="$(IISSiteFolder)"
+			Force="true"
+			Debug="false" 
+			Updateable="true" 
+			ToolPath="C:\Windows\Microsoft.NET\Framework\v4.0.30319\" />
+		<CallTarget Targets="StartIISSite"/>
+		<CallTarget Targets="CheckApplicationAvailable"/>
+	</Target>
+	
+	<Target Name="CopyWebTargets">
+		<MakeDir Directories="$(VisualStudioWebTragetsFolder)" Condition="!Exists('$(VisualStudioWebTragetsFolder)')" />
+		<Copy 
+			SourceFiles="@(WeApplicationTargetSources)"
+			DestinationFiles="@(WeApplicationTargetSources->'$(VisualStudioWebTragetsFolder)\%(RecursiveDir)%(Filename)%(Extension)')" Condition="!Exists('$(VisualStudioWebTragetsFile)')">
+			<Output
+				TaskParameter="CopiedFiles"
+				ItemName="SuccessfullyCopiedFiles"/>			
+		</Copy>
+	</Target>
+	
+	<!-- appcmd stop site "Default Web Site"; appcmd start site "Default Web Site"  <Exec Command="echo y| cacls %(Binaries.Identity) /G everyone:R"/>  -->
+	<Target Name="StopIISSite">
+		<Exec Command="$(PathToAppCMD) stop site $(SiteName)" />
+	</Target>
+	
+	<Target Name="StartIISSite">
+		<Exec Command="$(PathToAppCMD) start site $(SiteName)" />
+	</Target>
+	
+	<Target Name="CheckApplicationAvailable">
+		<Exec Command="$(PowershellPath) $(ExecutionPolicy)" />
+	</Target>
+	
+	
+</Project>
